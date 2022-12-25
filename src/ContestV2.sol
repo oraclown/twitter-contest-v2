@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-import "usingtellor/contracts/UsingTellor.sol";
+import "usingtellor/UsingTellor.sol";
 
 interface IERC20 {
     function transfer(address _to, uint256 _amount) external returns(bool);

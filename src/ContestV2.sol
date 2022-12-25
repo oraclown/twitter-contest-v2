@@ -8,7 +8,7 @@ interface IERC20 {
     function transferFrom(address _from, address _to, uint256 _amount) external returns(bool);
 }
 
-contract TheContest is UsingTellor {
+contract ContestV2 is UsingTellor {
     address public owner;
     uint256 public startDeadline; // when the contest starts
     uint256 public endDeadline;

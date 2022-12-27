@@ -98,4 +98,59 @@ contract ContestV2Test is Test {
         contest.register(handle2);
         vm.stopPrank();
     }
+
+    function testClaimLoser() public {
+        // register one account
+        vm.startPrank(bob);
+        token.approve(address(contest), wager + protocolFee);
+        contest.register(handle1);
+        vm.stopPrank();
+
+        // try to claim loser with only one account
+        vm.startPrank(alice);
+        vm.expectRevert("Only one user left");
+        contest.claimLoser(1);
+
+        // register two more accounts
+        token.approve(address(contest), wager + protocolFee);
+        contest.register(handle2);
+        vm.stopPrank();
+        vm.startPrank(ricky);
+        token.approve(address(contest), wager + protocolFee);
+        contest.register(handle3);
+
+        // try to claim loser before contest start
+        vm.expectRevert("Contest has not started");
+        contest.claimLoser(0);
+
+        // try to claim loser when no oracle value has been submitted. Simulates invalid index input as well
+        vm.warp(startDeadlineDays * 86400 + block.timestamp + 1);
+        vm.expectRevert("No data found");
+        contest.claimLoser(0);
+
+        // submitValue to tellor oracle signifying someone broke their tweeting streak
+        tellor.submitValue(queryId, abi.encode(handle1), 0, queryData);
+
+        // try to claim loser before oracle dispute period has elapsed
+        vm.expectRevert("Oracle dispute period has not passed");
+        contest.claimLoser(0);
+
+        // successfully claim loser
+        vm.warp(block.timestamp + 12 * 3600 + 1); // advance time past oracle dispute period of 12 hours
+        ContestV2.Member memory memberInfoBefore = contest.getMemberInfo(bob);
+        assertEq(memberInfoBefore.inTheRunning, true, "member should be in the running");
+        contest.claimLoser(0);
+        ContestV2.Member memory memberInfo = contest.getMemberInfo(bob);
+        assertEq(memberInfo.inTheRunning, false, "inTheRunning not set correctly");
+
+        // try to claim loser on account not "in the money"
+        vm.expectRevert("User is not in the running");
+        contest.claimLoser(0);
+
+        // try to claim loser after contest has ended
+        vm.warp((startDeadlineDays + endDeadlineDays) * 86400 + block.timestamp + 1);
+        vm.expectRevert("Contest has ended");
+        contest.claimLoser(0);
+        vm.stopPrank();
+    }
 }

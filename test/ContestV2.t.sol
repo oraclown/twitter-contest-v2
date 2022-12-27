@@ -19,9 +19,10 @@ contract ContestV2Test is Test {
     uint256 public wager = 500 wei;
     bytes public queryData = abi.encode("TwitterContestV1", abi.encode(bytes("")));
     bytes32 public queryId = keccak256(queryData);
-    address alice = address(0x12341234);
-    address bob = address(0x67896789);
-    address ricky = address(0x12345678);
+    address alice = address(0x1);
+    address bob = address(0x2);
+    address ricky = address(0x3);
+    address kevin = address(0x4);
     string public handle1 = "zip";
     string public handle2 = "zap";
     string public handle3 = "zop";
@@ -152,5 +153,63 @@ contract ContestV2Test is Test {
         vm.expectRevert("Contest has ended");
         contest.claimLoser(0);
         vm.stopPrank();
+    }
+
+    function testClaimFunds() public {
+        // register three accounts
+        vm.startPrank(bob);
+        token.approve(address(contest), wager + protocolFee);
+        contest.register(handle1);
+        vm.stopPrank();
+        vm.startPrank(alice);
+        token.approve(address(contest), wager + protocolFee);
+        contest.register(handle2);
+        vm.stopPrank();
+        vm.startPrank(ricky);
+        token.approve(address(contest), wager + protocolFee);
+        contest.register(handle3);
+
+        // claim loser on one participant
+        vm.warp(startDeadlineDays * 86400 + block.timestamp + 1);
+        tellor.submitValue(queryId, abi.encode(handle1), 0, queryData);
+        vm.warp(block.timestamp + 12 * 3600 + 1); // advance time past oracle dispute period of 12 hours
+        contest.claimLoser(0);
+        vm.stopPrank();
+
+        // try to claim funds as non-participant
+        vm.prank(kevin);
+        vm.expectRevert("not a valid participant");
+        contest.claimFunds();
+
+        // try to claim funds before contest has ended
+        vm.startPrank(alice);
+        vm.expectRevert("Game still active");
+        contest.claimFunds();
+
+        // claim funds successfully
+        vm.warp((startDeadlineDays + endDeadlineDays) * 86400 + block.timestamp + 1);
+        uint256 balanceBefore = token.balanceOf(alice);
+        contest.claimFunds();
+        uint256 balanceAfter = token.balanceOf(alice);
+        uint256 expectedBalance = wager + wager / 2;
+        assertEq(balanceAfter - balanceBefore, expectedBalance, "balance not correct");
+        
+        // try to claim funds again
+        vm.expectRevert("funds already claimed");
+        contest.claimFunds();
+        vm.stopPrank();
+
+        // last eligible participant claims funds successfully
+        vm.startPrank(ricky);
+        balanceBefore = token.balanceOf(ricky);
+        contest.claimFunds();
+        balanceAfter = token.balanceOf(ricky);
+        assertEq(balanceAfter - balanceBefore, expectedBalance, "balance not correct");
+        vm.stopPrank();
+  
+        // participant who broke their streak tries to claim funds
+        vm.prank(bob);
+        vm.expectRevert("not a valid participant");
+        contest.claimFunds();
     }
 }

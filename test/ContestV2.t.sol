@@ -212,4 +212,40 @@ contract ContestV2Test is Test {
         vm.expectRevert("not a valid participant");
         contest.claimFunds();
     }
+
+    function testGetHandlesList() public {
+        // check handles before registration
+        string[] memory handlesList = contest.getHandlesList();
+        assertEq(handlesList.length, 0, "handlesList should have 0 elements");
+
+        // check handles after 1 registration
+        vm.startPrank(bob);
+        token.approve(address(contest), wager + protocolFee);
+        contest.register(handle1);
+        handlesList = contest.getHandlesList();
+        vm.stopPrank();
+        assertEq(handlesList.length, 1, "handlesList should have 1 element");
+        assertEq(handlesList[0], handle1, "handlesList should have correct handle");
+    
+        // check handles after 2 registrations
+        vm.startPrank(alice);
+        token.approve(address(contest), wager + protocolFee);
+        contest.register(handle2);
+        handlesList = contest.getHandlesList();
+        vm.stopPrank();
+        assertEq(handlesList.length, 2, "handlesList should have 2 elements");
+        assertEq(handlesList[0], handle1, "handlesList should have correct handle");
+        assertEq(handlesList[1], handle2, "handlesList should have correct handle");
+
+        // check handles after 3 registrations
+        vm.startPrank(ricky);
+        token.approve(address(contest), wager + protocolFee);
+        contest.register(handle3);
+        handlesList = contest.getHandlesList();
+        vm.stopPrank();
+        assertEq(handlesList.length, 3, "handlesList should have 3 elements");
+        assertEq(handlesList[0], handle1, "handlesList should have correct handle");
+        assertEq(handlesList[1], handle2, "handlesList should have correct handle");
+        assertEq(handlesList[2], handle3, "handlesList should have correct handle");
+    }
 }

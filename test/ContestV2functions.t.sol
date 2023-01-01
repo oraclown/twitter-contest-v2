@@ -16,6 +16,8 @@ contract ContestV2Test is Test {
     uint256 public startDeadlineDays = 1;
     uint256 public endDeadlineDays = 100;
     uint256 public protocolFee = 10 wei;
+    uint256 public shieldCostBefore = 100 wei;
+    uint256 public shieldCostAfter = 200 wei;
     uint256 public wager = 500 wei;
     bytes public queryData = abi.encode("TwitterContestV1", abi.encode(bytes("")));
     bytes32 public queryId = keccak256(queryData);
@@ -36,7 +38,9 @@ contract ContestV2Test is Test {
             wager,
             startDeadlineDays,
             endDeadlineDays,
-            protocolFee
+            protocolFee,
+            shieldCostBefore,
+            shieldCostAfter
         );
         token.faucet(alice);
         token.faucet(bob);

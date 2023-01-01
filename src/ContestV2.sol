@@ -17,6 +17,8 @@ contract ContestV2 is UsingTellor {
     uint256 public ownerBalance;
     uint256 public pot;
     uint256 public protocolFee;
+    uint256 public shieldCostBefore;
+    uint256 public shieldCostAfter;
     uint256 public remainingCount;
     uint256 public reportingWindow = 1 days; 
     bytes queryData = abi.encode("TwitterContestV1", abi.encode(bytes("")));
@@ -25,6 +27,7 @@ contract ContestV2 is UsingTellor {
     
     mapping(address => Member) public members;
     mapping(string => address) public handleToAddress;
+    mapping(address => uint256) public shields;
 
     struct Member {
         bool inTheRunning;
@@ -38,7 +41,9 @@ contract ContestV2 is UsingTellor {
         uint256 _wager,
         uint256 _startDeadlineDays,
         uint256 _endDeadlineDays,
-        uint256 _protocolFee)
+        uint256 _protocolFee,
+        uint256 _shieldCostBefore,
+        uint256 _shieldCostAfter)
         UsingTellor(_tellor) {
         startDeadline = block.timestamp + _startDeadlineDays * 1 days;
         endDeadline = startDeadline + _endDeadlineDays * 1 days;
@@ -46,6 +51,8 @@ contract ContestV2 is UsingTellor {
         token = IERC20(_token);
         owner = msg.sender;
         protocolFee = _protocolFee;
+        shieldCostBefore = _shieldCostBefore;
+        shieldCostAfter = _shieldCostAfter;
     }
 
     function register(string memory _handle) public {
@@ -93,6 +100,19 @@ contract ContestV2 is UsingTellor {
         require(msg.sender == owner, "Only owner can claim");
         token.transfer(owner, ownerBalance);
         ownerBalance = 0;
+    }
+
+    function buyStreakShield() public {
+        Member storage _member = members[msg.sender];
+        require(_member.inTheRunning, "not a valid participant");
+        uint256 _price;
+        if (block.timestamp < startDeadline) {
+            _price = shieldCostBefore;
+        } else {
+            _price = shieldCostAfter;
+        }
+        require(token.transferFrom(msg.sender, address(this), _price), "Shield purchase failed");
+        shields[msg.sender]++;
     }
 
     // Getters

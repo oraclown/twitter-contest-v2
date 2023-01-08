@@ -55,6 +55,8 @@ contract ContestV2Test is Test {
         assertEq(contest.endDeadline(), (startDeadlineDays + endDeadlineDays) * 86400 + block.timestamp, "end deadline not set correctly");
         assertEq(contest.protocolFee(), protocolFee, "protocol fee not set correctly");
         assertEq(contest.wager(), wager, "wager not set correctly");
+        assertEq(contest.shieldCostBefore(), shieldCostBefore, "shield cost before not set correctly");
+        assertEq(contest.shieldCostAfter(), shieldCostAfter, "shield cost after not set correctly");
     }
 
     function testRegister() public {
@@ -251,5 +253,69 @@ contract ContestV2Test is Test {
         assertEq(handlesList[0], handle1, "handlesList should have correct handle");
         assertEq(handlesList[1], handle2, "handlesList should have correct handle");
         assertEq(handlesList[2], handle3, "handlesList should have correct handle");
+    }
+
+    function testStreakShields() public {
+        // register 3 accounts
+        vm.startPrank(bob);
+        token.approve(address(contest), wager + protocolFee);
+        contest.register(handle1);
+        vm.stopPrank();
+        vm.startPrank(alice);
+        token.approve(address(contest), wager + protocolFee);
+        contest.register(handle2);
+        vm.stopPrank();
+        vm.startPrank(ricky);
+        token.approve(address(contest), wager + protocolFee);
+        contest.register(handle3);
+
+        // ricky buys 1 shield b4 contest start
+        assertEq(contest.getShieldCount(ricky), 0, "shield count not 0");
+        uint256 balanceBefore = token.balanceOf(ricky);
+        token.approve(address(contest), shieldCostBefore);
+        contest.buyStreakShield();
+        uint256 balanceAfter = token.balanceOf(ricky);
+        assertEq(balanceBefore - shieldCostBefore, balanceAfter, "shield cost before contest start not deducted");
+        assertEq(contest.getShieldCount(ricky), 1, "shield count not 1");
+        // buys another shield after contest start
+        vm.warp(startDeadlineDays * 86400 + block.timestamp + 1);
+        balanceBefore = token.balanceOf(ricky);
+        token.approve(address(contest), shieldCostAfter);
+        contest.buyStreakShield();
+        balanceAfter = token.balanceOf(ricky);
+        assertEq(balanceBefore - shieldCostAfter, balanceAfter, "shield cost after contest start not deducted");
+        assertEq(contest.getShieldCount(ricky), 2, "shield count not 2");
+        vm.stopPrank();
+
+        // ricky breaks tweeting streak
+        vm.startPrank(bob);
+        tellor.submitValue(queryId, abi.encode(handle3), 0, queryData);
+        vm.warp(block.timestamp + 12 * 3600 + 1); // advance time past oracle dispute period of 12 hours
+        balanceBefore = token.balanceOf(bob);
+        contest.claimLoser(0);
+        balanceAfter = token.balanceOf(bob);
+        assertEq(contest.getShieldCount(ricky), 1, "shield count not 1");
+        // ensure ricky is still in the running
+        // bob's balance should be before += 10 percent of ricky's wager
+        // assertEq(balanceAfter - balanceBefore, wager / 10, "balance not correct");
+    
+        // ricky breaks streak again
+        tellor.submitValue(queryId, abi.encode(handle3), 0, queryData);
+        vm.warp(block.timestamp + 12 * 3600 + 1); // advance time past oracle dispute period of 12 hours
+        balanceBefore = token.balanceOf(bob);
+        contest.claimLoser(1);
+        balanceAfter = token.balanceOf(bob);
+        assertEq(contest.getShieldCount(ricky), 0, "shield count not 0");
+        // ensure ricky still in the running
+
+        // ricky breaks streak 3rd time (no shields left)
+        tellor.submitValue(queryId, abi.encode(handle3), 0, queryData);
+        vm.warp(block.timestamp + 12 * 3600 + 1); // advance time past oracle dispute period of 12 hours
+        balanceBefore = token.balanceOf(bob);
+        contest.claimLoser(2);
+        balanceAfter = token.balanceOf(bob);
+        // ensure ricky is out of the running
+
+        // other tests...
     }
 }

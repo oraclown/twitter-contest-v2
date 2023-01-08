@@ -82,6 +82,10 @@ contract ContestV2 is UsingTellor {
         string memory _handle = abi.decode(_valueRetrieved, (string));
         address _user = handleToAddress[_handle];
         require(members[_user].inTheRunning, "User is not in the running");
+        if (shields[_user] > 0) {
+            shields[_user]--;
+            return;
+        }
         members[_user].inTheRunning = false;
         remainingCount--;
     }
@@ -126,5 +130,9 @@ contract ContestV2 is UsingTellor {
 
     function getHandlesList() public view returns(string[] memory) {
         return _handles;
+    }
+
+    function getShieldCount(address _user) public view returns(uint256) {
+        return shields[_user];
     }
 }

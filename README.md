@@ -10,5 +10,4 @@
 -
 
 ## Replit setup
-- run `make`
-- `forge test`
+- run `source ./setup.sh`
